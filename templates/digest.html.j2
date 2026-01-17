@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MENA Daily Digest — {{ date }}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1a1a1a;
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #0066cc;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        .tldr {
+            background-color: #e6f2ff;
+            border-left: 4px solid #0066cc;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .tldr p {
+            margin: 0;
+            font-size: 1.05em;
+        }
+        ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        li {
+            margin-bottom: 12px;
+            padding-left: 25px;
+            position: relative;
+        }
+        li:before {
+            content: "▸";
+            position: absolute;
+            left: 5px;
+            color: #0066cc;
+            font-weight: bold;
+        }
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }
+        .section-icon {
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MENA Daily Digest — {{ date }}</h1>
+
+        <div class="tldr">
+            <strong>TL;DR</strong>
+            <p>{{ tl_dr }}</p>
+        </div>
+
+        {% if sections.EGYPT %}
+        <h2><span class="section-icon">🇪🇬</span>Egypt</h2>
+        <ul>
+        {% for bullet in sections.EGYPT %}
+            <li>{{ bullet | safe }}</li>
+        {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if sections.KSA %}
+        <h2><span class="section-icon">🇸🇦</span>Saudi Arabia</h2>
+        <ul>
+        {% for bullet in sections.KSA %}
+            <li>{{ bullet | safe }}</li>
+        {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if sections.UAE %}
+        <h2><span class="section-icon">🇦🇪</span>UAE</h2>
+        <ul>
+        {% for bullet in sections.UAE %}
+            <li>{{ bullet | safe }}</li>
+        {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if sections.LOGISTICS_SHIPPING %}
+        <h2><span class="section-icon">🚢</span>Logistics & Shipping</h2>
+        <ul>
+        {% for bullet in sections.LOGISTICS_SHIPPING %}
+            <li>{{ bullet | safe }}</li>
+        {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if sections.POLICY_REGULATION %}
+        <h2><span class="section-icon">📋</span>Policy & Regulation</h2>
+        <ul>
+        {% for bullet in sections.POLICY_REGULATION %}
+            <li>{{ bullet | safe }}</li>
+        {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if sections.GENERAL %}
+        <h2><span class="section-icon">📰</span>Other News</h2>
+        <ul>
+        {% for bullet in sections.GENERAL %}
+            <li>{{ bullet | safe }}</li>
+        {% endfor %}
+        </ul>
+        {% endif %}
+
+        <div class="footer">
+            Generated on {{ generated_at }} (Africa/Cairo)
+        </div>
+    </div>
+</body>
+</html>

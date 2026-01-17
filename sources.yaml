@@ -1,0 +1,50 @@
+sources:
+  # Gmail source for Enterprise Egypt newsletters
+  - name: Enterprise Egypt
+    type: gmail
+    is_active: true
+    config:
+      label: Enterprise-Forward
+      max_results: 50
+
+  # Reuters MENA (will use API if key provided, else RSS)
+  - name: Reuters MENA
+    type: reuters
+    is_active: true
+    config:
+      region: MENA
+      topics:
+        - TopNews
+        - Economy
+        - Politics
+
+  # RSS Fallback sources
+  - name: Reuters Middle East RSS
+    type: rss
+    is_active: true
+    config:
+      url: https://www.reuters.com/world/middle-east/rss
+
+  - name: Al Ahram Business RSS
+    type: rss
+    is_active: true
+    config:
+      url: https://english.ahram.org.eg/rss/business.aspx
+
+  - name: Daily News Egypt Business
+    type: rss
+    is_active: true
+    config:
+      url: https://dailynewssegypt.com/feed/
+
+  - name: Arab News KSA
+    type: rss
+    is_active: true
+    config:
+      url: https://www.arabnews.com/rss.xml
+
+  - name: The National UAE
+    type: rss
+    is_active: true
+    config:
+      url: https://www.thenationalnews.com/rss
