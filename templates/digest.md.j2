@@ -1,0 +1,60 @@
+# MENA Daily Digest — {{ date }}
+
+## TL;DR
+
+{{ tl_dr }}
+
+---
+
+{% if sections.EGYPT %}
+## 🇪🇬 Egypt
+
+{% for bullet in sections.EGYPT %}
+- {{ bullet }}
+{% endfor %}
+
+{% endif %}
+{% if sections.KSA %}
+## 🇸🇦 Saudi Arabia
+
+{% for bullet in sections.KSA %}
+- {{ bullet }}
+{% endfor %}
+
+{% endif %}
+{% if sections.UAE %}
+## 🇦🇪 UAE
+
+{% for bullet in sections.UAE %}
+- {{ bullet }}
+{% endfor %}
+
+{% endif %}
+{% if sections.LOGISTICS_SHIPPING %}
+## 🚢 Logistics & Shipping
+
+{% for bullet in sections.LOGISTICS_SHIPPING %}
+- {{ bullet }}
+{% endfor %}
+
+{% endif %}
+{% if sections.POLICY_REGULATION %}
+## 📋 Policy & Regulation
+
+{% for bullet in sections.POLICY_REGULATION %}
+- {{ bullet }}
+{% endfor %}
+
+{% endif %}
+{% if sections.GENERAL %}
+## 📰 Other News
+
+{% for bullet in sections.GENERAL %}
+- {{ bullet }}
+{% endfor %}
+
+{% endif %}
+
+---
+
+*Generated on {{ generated_at }} (Africa/Cairo)*

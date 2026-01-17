@@ -1,0 +1,121 @@
+name: Daily MENA Digest
+
+on:
+  # Daily cron at 06:30 UTC (08:30 Cairo time)
+  schedule:
+    - cron: '30 6 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Date for digest (YYYY-MM-DD) or leave empty for today'
+        required: false
+        type: string
+
+jobs:
+  generate-digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Set up environment
+        env:
+          # Add all secrets from GitHub Secrets
+          TZ: ${{ secrets.TZ || 'Africa/Cairo' }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'sqlite:///./mena_digest.db' }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GMAIL_LABEL: ${{ secrets.GMAIL_LABEL || 'Enterprise-Forward' }}
+          REUTERS_API_KEY: ${{ secrets.REUTERS_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          DIGEST_EMAIL_TO: ${{ secrets.DIGEST_EMAIL_TO }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_WHATSAPP_FROM: ${{ secrets.TWILIO_WHATSAPP_FROM }}
+          TWILIO_WHATSAPP_TO: ${{ secrets.TWILIO_WHATSAPP_TO }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          # Create .env file from secrets
+          cat > .env << EOF
+          TZ=${TZ}
+          DATABASE_URL=${DATABASE_URL}
+          GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+          GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+          GMAIL_LABEL=${GMAIL_LABEL}
+          REUTERS_API_KEY=${REUTERS_API_KEY}
+          ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+          OPENAI_API_KEY=${OPENAI_API_KEY}
+          SENDGRID_API_KEY=${SENDGRID_API_KEY}
+          SMTP_HOST=${SMTP_HOST}
+          SMTP_PORT=${SMTP_PORT}
+          SMTP_USER=${SMTP_USER}
+          SMTP_PASSWORD=${SMTP_PASSWORD}
+          SMTP_FROM=${SMTP_FROM}
+          DIGEST_EMAIL_TO=${DIGEST_EMAIL_TO}
+          TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+          TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+          TWILIO_WHATSAPP_FROM=${TWILIO_WHATSAPP_FROM}
+          TWILIO_WHATSAPP_TO=${TWILIO_WHATSAPP_TO}
+          TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+          TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+          EOF
+
+      - name: Restore Gmail token
+        if: ${{ secrets.GMAIL_TOKEN }}
+        run: |
+          echo '${{ secrets.GMAIL_TOKEN }}' > token.json
+
+      - name: Initialize database
+        run: |
+          python -m app.database
+
+      - name: Run digest generation
+        run: |
+          python -c "
+          import asyncio
+          from app.pipeline import DigestPipeline
+
+          async def main():
+              pipeline = DigestPipeline()
+              date = '${{ inputs.date }}' or None
+              await pipeline.run(date)
+
+          asyncio.run(main())
+          "
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-output
+          path: out/
+          retention-days: 30
+
+      - name: Save Gmail token
+        if: always()
+        run: |
+          if [ -f token.json ]; then
+            echo "GMAIL_TOKEN=$(cat token.json)" >> $GITHUB_OUTPUT
+          fi
+        id: save-token
