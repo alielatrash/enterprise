@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digest - MENA Daily Digest</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>📰 MENA Daily Digest</h1>
+                <p class="tagline">Your curated news from the Middle East & North Africa</p>
+            </div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/archive">Archive</a>
+                <a href="/about">About</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading digest...</p>
+        </div>
+
+        <div id="error" class="error hidden">
+            <p>Unable to load digest. Please try again later.</p>
+        </div>
+
+        <div id="digest-container" class="digest-container hidden">
+            <!-- Digest will be loaded here -->
+        </div>
+
+        <div style="margin-top: 2rem; text-align: center;">
+            <a href="/archive" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">
+                ← Back to Archive
+            </a>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 MENA Daily Digest. Powered by AI summarization.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Load specific digest from URL
+        document.addEventListener('DOMContentLoaded', function() {
+            const digestId = window.location.pathname.split('/').pop();
+            loadDigest(digestId);
+        });
+
+        async function loadDigest(digestId) {
+            const loadingEl = document.getElementById('loading');
+            const errorEl = document.getElementById('error');
+            const containerEl = document.getElementById('digest-container');
+
+            try {
+                const response = await fetch(`/digests/${digestId}?format=json`);
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch digest');
+                }
+
+                const data = await response.json();
+
+                // Hide loading, show content
+                loadingEl.classList.add('hidden');
+                containerEl.classList.remove('hidden');
+
+                // Render the digest
+                renderDigest(data, containerEl);
+
+            } catch (error) {
+                console.error('Error loading digest:', error);
+                loadingEl.classList.add('hidden');
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        // Copy renderDigest function from app.js
+        function renderDigest(data, container) {
+            const digest = data.digest || data;
+
+            const header = document.createElement('div');
+            header.className = 'digest-header';
+            header.innerHTML = `
+                <h2>MENA Digest</h2>
+                <p class="digest-date">${formatDate(digest.date || new Date().toISOString())}</p>
+            `;
+
+            const body = document.createElement('div');
+            body.className = 'digest-body';
+
+            if (digest.tldr) {
+                const tldrSection = document.createElement('div');
+                tldrSection.className = 'tldr-section';
+                tldrSection.innerHTML = `
+                    <h3>⚡ TL;DR</h3>
+                    <p>${digest.tldr}</p>
+                `;
+                body.appendChild(tldrSection);
+            }
+
+            if (digest.sections && typeof digest.sections === 'object') {
+                const articlesSection = document.createElement('div');
+                articlesSection.className = 'articles-section';
+
+                const sectionEmojis = {
+                    'Egypt': '🇪🇬',
+                    'Saudi Arabia': '🇸🇦',
+                    'UAE': '🇦🇪',
+                    'Logistics & Shipping': '🚢',
+                    'Policy & Regulation': '📋',
+                    'Other News': '📰',
+                    'MENA': '🌍',
+                    'General': '📰'
+                };
+
+                Object.entries(digest.sections).forEach(([sectionName, articles]) => {
+                    if (articles && articles.length > 0) {
+                        const sectionGroup = createSectionGroup(sectionName, articles, sectionEmojis[sectionName] || '📰');
+                        articlesSection.appendChild(sectionGroup);
+                    }
+                });
+
+                body.appendChild(articlesSection);
+            }
+
+            container.appendChild(header);
+            container.appendChild(body);
+        }
+
+        function createSectionGroup(sectionName, articles, emoji) {
+            const section = document.createElement('div');
+            section.className = 'section-group';
+
+            const header = document.createElement('h3');
+            header.className = 'section-header';
+            header.innerHTML = `${emoji} ${sectionName}`;
+
+            const list = document.createElement('ul');
+            list.className = 'article-list';
+
+            articles.forEach(article => {
+                const item = document.createElement('li');
+                item.className = 'article-item';
+
+                let title = article.title || article.text || article;
+                let url = article.url || article.link || '#';
+
+                if (typeof title === 'string') {
+                    const urlMatch = title.match(/\(https?:\/\/[^\)]+\)/);
+                    if (urlMatch) {
+                        url = urlMatch[0].slice(1, -1);
+                        title = title.replace(urlMatch[0], '').trim();
+                    }
+                }
+
+                item.innerHTML = `<a href="${url}" target="_blank" rel="noopener noreferrer">${title}</a>`;
+                list.appendChild(item);
+            });
+
+            section.appendChild(header);
+            section.appendChild(list);
+
+            return section;
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const options = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            };
+            return date.toLocaleDateString('en-US', options);
+        }
+    </script>
+</body>
+</html>
