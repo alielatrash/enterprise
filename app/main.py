@@ -6,6 +6,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 
 from app.config import settings
@@ -46,10 +47,31 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.get("/")
+
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    """Root endpoint"""
+    """Serve the main web interface"""
+    return FileResponse("static/index.html")
+
+
+@app.get("/archive", response_class=HTMLResponse)
+async def archive_page():
+    """Serve the archive page"""
+    return FileResponse("static/archive.html")
+
+
+@app.get("/about", response_class=HTMLResponse)
+async def about_page():
+    """Serve the about page"""
+    return FileResponse("static/about.html")
+
+
+@app.get("/api")
+async def api_info():
+    """API information endpoint"""
     return {
         "service": "MENA Daily Digest",
         "version": "1.0.0",
@@ -118,12 +140,14 @@ async def get_latest_digest(format: str = "html"):
 
         if format == "json":
             return {
-                "id": digest.id,
-                "date": digest.date,
-                "tl_dr": digest.tl_dr,
-                "items": digest.items,
-                "html_path": digest.html_path,
-                "md_path": digest.md_path,
+                "digest": {
+                    "id": digest.id,
+                    "date": digest.date,
+                    "tldr": digest.tl_dr,
+                    "sections": digest.items if isinstance(digest.items, dict) else {},
+                    "html_path": digest.html_path,
+                    "md_path": digest.md_path,
+                }
             }
         elif format == "md":
             if not digest.md_path or not Path(digest.md_path).exists():
@@ -155,12 +179,18 @@ async def list_digests(limit: int = 10):
                 {
                     "id": d.id,
                     "date": d.date,
-                    "tl_dr": d.tl_dr,
+                    "tldr": d.tl_dr,
                     "created_at": d.created_at.isoformat(),
                 }
                 for d in digests
             ],
         }
+
+
+@app.get("/digest/{digest_id}", response_class=HTMLResponse)
+async def view_digest_page(digest_id: int):
+    """Serve a digest viewing page"""
+    return FileResponse("static/digest.html")
 
 
 @app.get("/digests/{digest_id}")
@@ -180,12 +210,14 @@ async def get_digest(digest_id: int, format: str = "json"):
 
         if format == "json":
             return {
-                "id": digest.id,
-                "date": digest.date,
-                "tl_dr": digest.tl_dr,
-                "items": digest.items,
-                "html_path": digest.html_path,
-                "md_path": digest.md_path,
+                "digest": {
+                    "id": digest.id,
+                    "date": digest.date,
+                    "tldr": digest.tl_dr,
+                    "sections": digest.items if isinstance(digest.items, dict) else {},
+                    "html_path": digest.html_path,
+                    "md_path": digest.md_path,
+                }
             }
         elif format == "md":
             if not digest.md_path or not Path(digest.md_path).exists():
