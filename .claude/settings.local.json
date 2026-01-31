@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest init:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npx prisma init:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(curl:*)",
+      "Bash(npm run db:seed:*)",
+      "Bash(ls:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(pkill:*)",
+      "Bash(npx prisma studio:*)",
+      "Bash(npm run seed:quick:*)",
+      "Bash(npm run dev:*)",
+      "WebFetch(domain:www.goaudience.com)"
+    ]
+  }
+}

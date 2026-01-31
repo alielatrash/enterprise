@@ -1,0 +1,368 @@
+// Trella Transportation Planning - Database Schema
+// Week structure: Sunday (day1) to Saturday (day7)
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["tracing"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")      // Pooled connection for queries
+  directUrl = env("DIRECT_URL")        // Direct connection for migrations
+}
+
+// ============ AUTHENTICATION & USERS ============
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?  // Bcrypt hashed password
+  firstName    String
+  lastName     String
+  mobileNumber String?
+  avatarUrl    String?  // Cloudinary URL
+  role         UserRole
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  sessions            Session[]
+  otpCodes            OTPCode[]
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+  passwordResetTokens PasswordResetToken[]
+  demandForecasts     DemandForecast[]
+  supplyCommitments   SupplyCommitment[]
+
+  @@index([email])
+  @@index([role])
+}
+
+enum UserRole {
+  DEMAND_PLANNER
+  SUPPLY_PLANNER
+  ADMIN
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+model OTPCode {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String     // 6-digit code (hashed)
+  purpose   OTPPurpose
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int        @default(0)
+  createdAt DateTime   @default(now())
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+}
+
+enum OTPPurpose {
+  EMAIL_VERIFICATION
+  LOGIN
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String   // e.g., "demand_forecast.create", "supply.update"
+  entityType String   // e.g., "DemandForecast", "SupplyCommitment"
+  entityId   String?
+  metadata   Json?    // Additional context (old/new values, etc.)
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  entityId  String?  // ID of related entity (forecast, commitment, etc.)
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  DEMAND_CREATED
+  SUPPLY_UPDATED
+  SUPPLY_CREATED
+}
+
+// ============ MASTER DATA REPOSITORIES ============
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String?  @unique // Short code for display
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  demandForecasts DemandForecast[]
+
+  @@index([name])
+  @@index([isActive])
+  @@map("Shipper") // Keep database table name for backwards compatibility
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String   @unique // WLS, MOMENTUM, MOSANADA, etc.
+  code      String?  @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  supplyCommitments SupplyCommitment[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model City {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  nameAr    String?  // Arabic name
+  code      String?  @unique // Short code
+  region    String?  // Geographic region (West, Central, East, etc.)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pickupForecasts  DemandForecast[] @relation("PickupCity")
+  dropoffForecasts DemandForecast[] @relation("DropoffCity")
+
+  @@index([name])
+  @@index([region])
+  @@index([isActive])
+}
+
+model TruckType {
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g., "Curtainside", "Flatbed", "Reefer"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  demandForecasts   DemandForecast[]
+  supplyCommitments SupplyCommitment[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+// ============ PLANNING ============
+
+model PlanningWeek {
+  id         String   @id @default(cuid())
+  weekStart  DateTime // Sunday of the week
+  weekEnd    DateTime // Saturday of the week
+  year       Int
+  weekNumber Int
+  isCurrent  Boolean  @default(false)
+  isLocked   Boolean  @default(false) // Prevent edits after week passes
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  demandForecasts   DemandForecast[]
+  supplyCommitments SupplyCommitment[]
+
+  @@unique([year, weekNumber])
+  @@index([weekStart])
+  @@index([isCurrent])
+}
+
+model DemandForecast {
+  id String @id @default(cuid())
+
+  // Planning context
+  planningWeekId String
+  planningWeek   PlanningWeek @relation(fields: [planningWeekId], references: [id])
+
+  // Client & Route
+  clientId      String  @map("shipperId") // Keep database column name
+  client        Client  @relation(fields: [clientId], references: [id])
+  pickupCityId  String
+  pickupCity    City    @relation("PickupCity", fields: [pickupCityId], references: [id])
+  dropoffCityId String
+  dropoffCity   City    @relation("DropoffCity", fields: [dropoffCityId], references: [id])
+  citym         String  // Auto-generated: "PICKUP->DROPOFF"
+
+  // Classification
+  vertical    Vertical
+  truckTypeId String
+  truckType   TruckType @relation(fields: [truckTypeId], references: [id])
+
+  // Daily load forecasts (Sunday to Saturday)
+  day1Loads  Int @default(0) // Sunday
+  day2Loads  Int @default(0) // Monday
+  day3Loads  Int @default(0) // Tuesday
+  day4Loads  Int @default(0) // Wednesday
+  day5Loads  Int @default(0) // Thursday
+  day6Loads  Int @default(0) // Friday
+  day7Loads  Int @default(0) // Saturday
+  totalLoads Int @default(0) // Computed sum
+
+  // Metadata
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([planningWeekId, clientId, pickupCityId, dropoffCityId, truckTypeId])
+  @@index([citym])
+  @@index([planningWeekId])
+  @@index([vertical])
+  @@index([clientId])
+  @@index([pickupCityId])
+  @@index([dropoffCityId])
+  @@index([truckTypeId])
+  @@index([createdById])
+  @@index([planningWeekId, clientId])
+  @@index([planningWeekId, citym])
+}
+
+enum Vertical {
+  DOMESTIC
+  PORTS
+}
+
+model SupplyCommitment {
+  id String @id @default(cuid())
+
+  // Planning context
+  planningWeekId String
+  planningWeek   PlanningWeek @relation(fields: [planningWeekId], references: [id])
+
+  // Supplier info
+  supplierId  String
+  supplier    Supplier   @relation(fields: [supplierId], references: [id])
+  citym       String     // Route this commitment is for
+  truckTypeId String?
+  truckType   TruckType? @relation(fields: [truckTypeId], references: [id])
+
+  // Daily committed supply (Sunday to Saturday)
+  day1Committed  Int @default(0) // Sunday
+  day2Committed  Int @default(0) // Monday
+  day3Committed  Int @default(0) // Tuesday
+  day4Committed  Int @default(0) // Wednesday
+  day5Committed  Int @default(0) // Thursday
+  day6Committed  Int @default(0) // Friday
+  day7Committed  Int @default(0) // Saturday
+  totalCommitted Int @default(0) // Computed sum
+
+  // Metadata
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([planningWeekId, supplierId, citym, truckTypeId])
+  @@index([citym])
+  @@index([planningWeekId])
+  @@index([supplierId])
+  @@index([truckTypeId])
+  @@index([createdById])
+}
+
+// ============ REDASH DATA INTEGRATION ============
+
+model RedashSync {
+  id             String        @id @default(cuid())
+  endpoint       RedashEndpoint @unique
+  lastSyncAt     DateTime?
+  lastSyncStatus SyncStatus
+  recordsCount   Int           @default(0)
+  errorMessage   String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+enum RedashEndpoint {
+  ACTUAL_SHIPPER_REQUESTS
+  FLEET_PARTNER_COMPLETION
+}
+
+enum SyncStatus {
+  SUCCESS
+  FAILED
+  IN_PROGRESS
+}
+
+model ActualShipperRequest {
+  id             String   @id @default(cuid())
+  externalId     String   @unique // ID from Redash
+  shipperName    String?  // Original shipper name from Redash
+  citym          String
+  requestDate    DateTime
+  truckType      String?
+  loadsRequested Int
+  loadsFulfilled Int      @default(0)
+  syncedAt       DateTime @default(now())
+
+  @@index([citym])
+  @@index([requestDate])
+  @@index([shipperName])
+}
+
+model FleetPartnerCompletion {
+  id             String   @id @default(cuid())
+  externalId     String   @unique // ID from Redash
+  supplierName   String?  // Original supplier name from Redash
+  citym          String
+  completionDate DateTime
+  truckType      String?
+  loadsCompleted Int
+  syncedAt       DateTime @default(now())
+
+  @@index([citym])
+  @@index([completionDate])
+  @@index([supplierName])
+}

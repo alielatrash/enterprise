@@ -1,0 +1,117 @@
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { verifyPassword } from '@/lib/password'
+import { createSession, setSessionCookie } from '@/lib/auth'
+import { createAuditLog, AuditAction } from '@/lib/audit'
+import { loginSchema } from '@/lib/validations/auth'
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+
+    // Validate input
+    const validationResult = loginSchema.safeParse(body)
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid input',
+            details: validationResult.error.flatten().fieldErrors,
+          },
+        },
+        { status: 400 }
+      )
+    }
+
+    const { email, password } = validationResult.data
+    const normalizedEmail = email.toLowerCase()
+
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    })
+
+    if (!user || !user.passwordHash) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'INVALID_CREDENTIALS',
+            message: 'Invalid email or password',
+          },
+        },
+        { status: 401 }
+      )
+    }
+
+    // Verify password
+    const isValidPassword = await verifyPassword(password, user.passwordHash)
+    if (!isValidPassword) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'INVALID_CREDENTIALS',
+            message: 'Invalid email or password',
+          },
+        },
+        { status: 401 }
+      )
+    }
+
+    if (!user.isActive) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'USER_INACTIVE',
+            message: 'Your account has been deactivated',
+          },
+        },
+        { status: 403 }
+      )
+    }
+
+    // Create session and set cookie
+    const userAgent = request.headers.get('user-agent') || undefined
+    const token = await createSession(user.id, userAgent)
+    await setSessionCookie(token)
+
+    // Audit log
+    await createAuditLog({
+      userId: user.id,
+      action: AuditAction.USER_LOGGED_IN,
+      entityType: 'User',
+      entityId: user.id,
+      metadata: { email: normalizedEmail },
+    })
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        message: 'Login successful',
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+        },
+      },
+    })
+  } catch (error) {
+    console.error('Login error:', error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'An unexpected error occurred',
+        },
+      },
+      { status: 500 }
+    )
+  }
+}

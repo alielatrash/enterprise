@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/redash-sync",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
